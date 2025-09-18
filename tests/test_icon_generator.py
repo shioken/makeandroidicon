@@ -39,7 +39,7 @@ def test_crop_icon_from_image_makes_edge_background_transparent() -> None:
     assert any(pixel[:3] == (255, 255, 255) for pixel in opaque_pixels)
 
 
-def test_generate_android_icons(tmp_path: Path) -> None:
+def test_generate_android_icons_default_webp(tmp_path: Path) -> None:
     icon = Image.new("RGBA", (256, 256), (0, 128, 0, 255))
 
     outputs = generate_android_icons(icon, tmp_path, filename="ic_launcher.png")
@@ -49,7 +49,24 @@ def test_generate_android_icons(tmp_path: Path) -> None:
     for density, expected_size in ANDROID_ICON_SIZES.items():
         output_path = outputs[density]
         assert output_path.exists()
+        assert output_path.suffix == ".png"
 
         with Image.open(output_path) as generated:
+            assert generated.format == "PNG"
             assert generated.size == (expected_size, expected_size)
-            assert generated.mode == "RGBA"
+
+
+def test_generate_android_icons_webp(tmp_path: Path) -> None:
+    icon = Image.new("RGBA", (256, 256), (0, 128, 0, 255))
+
+    outputs = generate_android_icons(
+        icon,
+        tmp_path,
+        filename="ic_launcher.webp",
+        image_format="WEBP",
+    )
+
+    for density, expected_size in ANDROID_ICON_SIZES.items():
+        with Image.open(outputs[density]) as generated:
+            assert generated.format == "WEBP"
+            assert generated.size == (expected_size, expected_size)

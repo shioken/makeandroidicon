@@ -147,7 +147,8 @@ def generate_android_icons(
     icon: Image.Image,
     output_dir: str | Path,
     *,
-    filename: str = "ic_launcher.png",
+    filename: str = "ic_launcher.webp",
+    image_format: str | None = None,
     sizes: Mapping[str, int] | None = None,
 ) -> Dict[str, Path]:
     """Generate resized Android icons and return a map of density to file path."""
@@ -160,6 +161,18 @@ def generate_android_icons(
         if value <= 0:
             raise ValueError(f"Icon size for {key} must be positive, got {value}")
 
+    inferred_format = image_format
+    if inferred_format is None:
+        suffix = Path(filename).suffix
+        if suffix:
+            inferred_format = suffix[1:].upper()
+    if inferred_format is None:
+        inferred_format = "PNG"
+
+    # Pillow expects "JPEG" rather than "JPG", etc.
+    if inferred_format in {"JPG", "JPEG"}:
+        inferred_format = "JPEG"
+
     output_paths: Dict[str, Path] = {}
     base_dir = Path(output_dir)
     base_dir.mkdir(parents=True, exist_ok=True)
@@ -170,7 +183,15 @@ def generate_android_icons(
 
         resized = ImageOps.fit(icon, (edge, edge), method=Image.Resampling.LANCZOS)
         output_path = target_dir / filename
-        resized.save(output_path, format="PNG")
+        save_image = resized
+        if inferred_format.upper() == "WEBP" and resized.mode not in {"RGBA", "RGB"}:
+            save_image = resized.convert("RGBA")
+
+        save_kwargs = {}
+        if inferred_format.upper() == "WEBP":
+            save_kwargs["lossless"] = True
+
+        save_image.save(output_path, format=inferred_format, **save_kwargs)
         output_paths[density] = output_path
 
     return output_paths

@@ -36,8 +36,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--filename",
-        default="ic_launcher.png",
+        default="ic_launcher.webp",
         help="各densityフォルダに保存するファイル名",
+    )
+    parser.add_argument(
+        "--format",
+        default=None,
+        help="出力フォーマット (例: webp, png)。未指定ならファイル拡張子から推測",
     )
     return parser.parse_args(argv)
 
@@ -46,7 +51,12 @@ def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
 
     icon = prepare_icon(args.source, tolerance=args.tolerance)
-    outputs = generate_android_icons(icon, args.output, filename=args.filename)
+    outputs = generate_android_icons(
+        icon,
+        args.output,
+        filename=args.filename,
+        image_format=args.format.upper() if args.format else None,
+    )
 
     print("以下のアイコンを生成しました:")
     for density, path in sorted(outputs.items()):
