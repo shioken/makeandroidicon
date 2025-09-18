@@ -5,7 +5,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .icon_generator import generate_android_icons, prepare_icon
+from .icon_generator import (
+    generate_adaptive_icon_layers,
+    generate_android_icons,
+    prepare_icon,
+)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -54,6 +58,47 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="ラウンドアイコンのフォーマット。省略時は round-filename から推測",
     )
+    parser.add_argument(
+        "--adaptive",
+        action="store_true",
+        help="アダプティブアイコン用のレイヤー (foreground/background/XML) も生成",
+    )
+    parser.add_argument(
+        "--adaptive-foreground",
+        default="ic_launcher_foreground.webp",
+        help="アダプティブアイコンのforegroundファイル名",
+    )
+    parser.add_argument(
+        "--adaptive-background",
+        default="ic_launcher_background.webp",
+        help="アダプティブアイコンのbackgroundファイル名",
+    )
+    parser.add_argument(
+        "--adaptive-format",
+        default=None,
+        help="アダプティブアイコンレイヤーのフォーマット (例: webp)",
+    )
+    parser.add_argument(
+        "--adaptive-color",
+        default="#ffffff",
+        help="backgroundレイヤーに使うカラー (#RRGGBB / #AARRGGBB / transparent)",
+    )
+    parser.add_argument(
+        "--adaptive-scale",
+        type=float,
+        default=0.9,
+        help="foregroundの縮尺 (0-1)。1で背景と同じサイズ",
+    )
+    parser.add_argument(
+        "--adaptive-xml",
+        default="ic_launcher.xml",
+        help="生成するアダプティブアイコンXML名",
+    )
+    parser.add_argument(
+        "--adaptive-xml-round",
+        default="ic_launcher_round.xml",
+        help="ラウンド版XML名 (空文字で生成しない)",
+    )
     return parser.parse_args(argv)
 
 
@@ -78,3 +123,31 @@ def main(argv: list[str] | None = None) -> None:
         for variant, path in variants.items():
             label = density if variant == "default" else f"{density} ({variant})"
             print(f" - {label}: {path}")
+
+    if args.adaptive:
+        xml_round_name = args.adaptive_xml_round if args.adaptive_xml_round else None
+        adaptive_outputs = generate_adaptive_icon_layers(
+            icon,
+            args.output,
+            foreground_filename=args.adaptive_foreground,
+            background_filename=args.adaptive_background,
+            image_format=args.adaptive_format.upper() if args.adaptive_format else None,
+            background_color=args.adaptive_color,
+            foreground_scale=args.adaptive_scale,
+            xml_name=args.adaptive_xml,
+            xml_round_name=xml_round_name,
+        )
+
+        print("アダプティブアイコン用レイヤー:")
+        for key in sorted(adaptive_outputs):
+            variants = adaptive_outputs[key]
+            if isinstance(variants, dict):
+                for variant, path in variants.items():
+                    label = key if key != "xml" else variant
+                    if key != "xml" and variant not in {"foreground", "background"}:
+                        label = f"{key} ({variant})"
+                    elif key != "xml":
+                        label = f"{key} ({variant})"
+                    print(f" - {label}: {path}")
+            else:
+                print(f" - {key}: {variants}")

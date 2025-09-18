@@ -3,8 +3,10 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from makeandroidicon.icon_generator import (
+    ADAPTIVE_ICON_SIZES,
     ANDROID_ICON_SIZES,
     crop_icon_from_image,
+    generate_adaptive_icon_layers,
     generate_android_icons,
 )
 
@@ -89,3 +91,45 @@ def test_generate_android_icons_webp(tmp_path: Path) -> None:
             # 角が透明になっていることを確認（円形マスク適用）
             assert generated_round.mode == "RGBA"
             assert generated_round.getpixel((0, 0))[3] == 0
+
+
+def test_generate_adaptive_icon_layers(tmp_path: Path) -> None:
+    icon = Image.new("RGBA", (512, 512), (0, 180, 255, 255))
+
+    outputs = generate_adaptive_icon_layers(
+        icon,
+        tmp_path,
+        foreground_filename="ic_launcher_foreground.webp",
+        background_filename="ic_launcher_background.webp",
+        image_format="WEBP",
+        background_color="#FF0000",
+        foreground_scale=0.8,
+        xml_name="ic_launcher.xml",
+        xml_round_name="ic_launcher_round.xml",
+    )
+
+    for density, expected_size in ADAPTIVE_ICON_SIZES.items():
+        layer = outputs[density]
+        foreground = layer["foreground"]
+        background = layer["background"]
+
+        with Image.open(foreground) as fg_img:
+            assert fg_img.size == (expected_size, expected_size)
+            assert fg_img.format == "WEBP"
+            # 前景は背景より小さい
+            assert fg_img.getpixel((0, 0))[3] == 0
+
+        with Image.open(background) as bg_img:
+            assert bg_img.size == (expected_size, expected_size)
+            assert bg_img.format == "WEBP"
+            assert bg_img.getpixel((0, 0))[:3] == (255, 0, 0)
+
+    xml_outputs = outputs["xml"]
+    xml_path = xml_outputs["ic_launcher.xml"]
+    xml_round_path = xml_outputs["ic_launcher_round.xml"]
+
+    content = xml_path.read_text(encoding="utf-8")
+    assert "<adaptive-icon" in content
+    assert "@mipmap/ic_launcher_foreground" in content
+    assert "@mipmap/ic_launcher_background" in content
+    assert xml_round_path.read_text(encoding="utf-8") == content
