@@ -1,0 +1,12 @@
+[project]
+name = "makeandroidicon"
+version = "0.1.0"
+description = "Android icon asset generator"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "Pillow>=10.4.0",
+]
+
+[project.scripts]
+makeandroidicon = "makeandroidicon.cli:main"
