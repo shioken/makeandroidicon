@@ -42,12 +42,18 @@ def test_crop_icon_from_image_makes_edge_background_transparent() -> None:
 def test_generate_android_icons_default_webp(tmp_path: Path) -> None:
     icon = Image.new("RGBA", (256, 256), (0, 128, 0, 255))
 
-    outputs = generate_android_icons(icon, tmp_path, filename="ic_launcher.png")
+    outputs = generate_android_icons(
+        icon,
+        tmp_path,
+        filename="ic_launcher.png",
+        image_format="PNG",
+        round_filename=None,
+    )
 
     assert set(outputs) == set(ANDROID_ICON_SIZES)
 
     for density, expected_size in ANDROID_ICON_SIZES.items():
-        output_path = outputs[density]
+        output_path = outputs[density]["default"]
         assert output_path.exists()
         assert output_path.suffix == ".png"
 
@@ -64,9 +70,22 @@ def test_generate_android_icons_webp(tmp_path: Path) -> None:
         tmp_path,
         filename="ic_launcher.webp",
         image_format="WEBP",
+        round_filename="ic_launcher_round.webp",
+        round_format="WEBP",
     )
 
     for density, expected_size in ANDROID_ICON_SIZES.items():
-        with Image.open(outputs[density]) as generated:
+        default_path = outputs[density]["default"]
+        round_path = outputs[density]["round"]
+
+        with Image.open(default_path) as generated:
             assert generated.format == "WEBP"
             assert generated.size == (expected_size, expected_size)
+
+        with Image.open(round_path) as generated_round:
+            assert generated_round.format == "WEBP"
+            assert generated_round.size == (expected_size, expected_size)
+
+            # 角が透明になっていることを確認（円形マスク適用）
+            assert generated_round.mode == "RGBA"
+            assert generated_round.getpixel((0, 0))[3] == 0

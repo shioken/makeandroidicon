@@ -6,7 +6,7 @@ from collections import Counter, deque
 from pathlib import Path
 from typing import Dict, Mapping, Tuple
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageDraw, ImageOps
 
 # Launcher icon edge lengths for each density bucket in pixels.
 ANDROID_ICON_SIZES: Mapping[str, int] = {
@@ -143,15 +143,50 @@ def crop_icon_from_image(image: Image.Image, *, tolerance: int = 10) -> Image.Im
     return square
 
 
+def _apply_round_mask(image: Image.Image) -> Image.Image:
+    """Return *image* with a circular alpha mask applied."""
+
+    if image.mode != "RGBA":
+        image = image.convert("RGBA")
+
+    mask = Image.new("L", image.size, 0)
+    draw = ImageDraw.Draw(mask)
+    draw.ellipse((0, 0, image.size[0] - 1, image.size[1] - 1), fill=255)
+
+    rounded = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    rounded.paste(image, mask=mask)
+    return rounded
+
+
+def _deduce_format(filename: str, explicit_format: str | None) -> str:
+    fmt = explicit_format
+    if fmt is None:
+        suffix = Path(filename).suffix
+        if suffix:
+            fmt = suffix[1:].upper()
+    if fmt is None:
+        fmt = "PNG"
+
+    if fmt in {"JPG", "JPEG"}:
+        return "JPEG"
+    return fmt
+
+
 def generate_android_icons(
     icon: Image.Image,
     output_dir: str | Path,
     *,
     filename: str = "ic_launcher.webp",
     image_format: str | None = None,
+    round_filename: str | None = "ic_launcher_round.webp",
+    round_format: str | None = None,
     sizes: Mapping[str, int] | None = None,
-) -> Dict[str, Path]:
-    """Generate resized Android icons and return a map of density to file path."""
+) -> Dict[str, Dict[str, Path]]:
+    """Generate resized Android icons.
+
+    Returns a mapping ``density -> {"default": Path, "round": Path}`` (the ``round``
+    key is present only when ``round_filename`` is provided).
+    """
 
     if icon.mode not in {"RGB", "RGBA"}:
         icon = icon.convert("RGBA")
@@ -161,19 +196,12 @@ def generate_android_icons(
         if value <= 0:
             raise ValueError(f"Icon size for {key} must be positive, got {value}")
 
-    inferred_format = image_format
-    if inferred_format is None:
-        suffix = Path(filename).suffix
-        if suffix:
-            inferred_format = suffix[1:].upper()
-    if inferred_format is None:
-        inferred_format = "PNG"
+    inferred_format = _deduce_format(filename, image_format)
+    round_inferred_format: str | None = None
+    if round_filename:
+        round_inferred_format = _deduce_format(round_filename, round_format or image_format)
 
-    # Pillow expects "JPEG" rather than "JPG", etc.
-    if inferred_format in {"JPG", "JPEG"}:
-        inferred_format = "JPEG"
-
-    output_paths: Dict[str, Path] = {}
+    output_paths: Dict[str, Dict[str, Path]] = {}
     base_dir = Path(output_dir)
     base_dir.mkdir(parents=True, exist_ok=True)
 
@@ -182,7 +210,8 @@ def generate_android_icons(
         target_dir.mkdir(parents=True, exist_ok=True)
 
         resized = ImageOps.fit(icon, (edge, edge), method=Image.Resampling.LANCZOS)
-        output_path = target_dir / filename
+        default_path = target_dir / filename
+
         save_image = resized
         if inferred_format.upper() == "WEBP" and resized.mode not in {"RGBA", "RGB"}:
             save_image = resized.convert("RGBA")
@@ -191,8 +220,25 @@ def generate_android_icons(
         if inferred_format.upper() == "WEBP":
             save_kwargs["lossless"] = True
 
-        save_image.save(output_path, format=inferred_format, **save_kwargs)
-        output_paths[density] = output_path
+        save_image.save(default_path, format=inferred_format, **save_kwargs)
+
+        density_outputs: Dict[str, Path] = {"default": default_path}
+
+        if round_filename and round_inferred_format:
+            round_path = target_dir / round_filename
+            round_icon = _apply_round_mask(resized)
+            round_save = round_icon
+            if round_inferred_format.upper() == "WEBP" and round_icon.mode not in {"RGBA", "RGB"}:
+                round_save = round_icon.convert("RGBA")
+
+            round_kwargs = {}
+            if round_inferred_format.upper() == "WEBP":
+                round_kwargs["lossless"] = True
+
+            round_save.save(round_path, format=round_inferred_format, **round_kwargs)
+            density_outputs["round"] = round_path
+
+        output_paths[density] = density_outputs
 
     return output_paths
 

@@ -38,6 +38,8 @@ makeandroidicon path/to/source.png --output build/icons
 - `--tolerance`: 白背景を検出するための許容値 (0〜255、デフォルト10)。背景がやや灰色の場合は大きめに調整します。
 - `--filename`: 各 density フォルダ内に書き出すファイル名。既定値は `ic_launcher.webp`。
 - `--format`: 出力フォーマット（例: `webp`, `png`）。省略するとファイル拡張子から自動推測します。
+- `--round-filename`: ラウンドアイコンのファイル名。既定値は `ic_launcher_round.webp`。空文字を指定すると生成をスキップします。
+- `--round-format`: ラウンドアイコンのフォーマット。省略時は `--round-filename` の拡張子から推測します。
 
 背景は外周から同じ色（許容値以内）の領域を探索し、透明化したあとでトリミングするため、四隅の白地などは自動的に透過へ変換されます。アイコン内部の白いパーツは背景に連続していない限り保持されます。
 
@@ -45,12 +47,12 @@ makeandroidicon path/to/source.png --output build/icons
 
 ```
 build/icons/
-├── mipmap-mdpi/ic_launcher.webp   # 48x48 px
-├── mipmap-hdpi/ic_launcher.webp   # 72x72 px
-├── mipmap-xhdpi/ic_launcher.webp  # 96x96 px
-├── mipmap-xxhdpi/ic_launcher.webp # 144x144 px
-├── mipmap-xxxhdpi/ic_launcher.webp# 192x192 px
-└── play-store/ic_launcher.webp    # 512x512 px
+├── mipmap-mdpi/ic_launcher.webp        # 48x48 px（通常）
+├── mipmap-mdpi/ic_launcher_round.webp  # 48x48 px（円形）
+├── mipmap-hdpi/ic_launcher.webp        # 72x72 px
+├── mipmap-hdpi/ic_launcher_round.webp  # 72x72 px
+├── ...
+└── play-store/ic_launcher.webp         # 512x512 px
 ```
 
 ## テスト

@@ -44,6 +44,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="出力フォーマット (例: webp, png)。未指定ならファイル拡張子から推測",
     )
+    parser.add_argument(
+        "--round-filename",
+        default="ic_launcher_round.webp",
+        help="ラウンドアイコンを書き出すファイル名 (空文字で無効化)",
+    )
+    parser.add_argument(
+        "--round-format",
+        default=None,
+        help="ラウンドアイコンのフォーマット。省略時は round-filename から推測",
+    )
     return parser.parse_args(argv)
 
 
@@ -51,13 +61,20 @@ def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
 
     icon = prepare_icon(args.source, tolerance=args.tolerance)
+    round_filename = args.round_filename if args.round_filename else None
+
     outputs = generate_android_icons(
         icon,
         args.output,
         filename=args.filename,
         image_format=args.format.upper() if args.format else None,
+        round_filename=round_filename,
+        round_format=args.round_format.upper() if args.round_format else None,
     )
 
     print("以下のアイコンを生成しました:")
-    for density, path in sorted(outputs.items()):
-        print(f" - {density}: {path}")
+    for density in sorted(outputs):
+        variants = outputs[density]
+        for variant, path in variants.items():
+            label = density if variant == "default" else f"{density} ({variant})"
+            print(f" - {label}: {path}")
